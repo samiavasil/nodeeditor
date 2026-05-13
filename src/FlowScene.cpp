@@ -617,7 +617,14 @@ sceneContextMenuEvent(Node &node, const QPointF &pos)
     QMenu menu;
     QAction *embedAction    = menu.addAction("Embed");
     QAction *deembedAction  = menu.addAction("Deembed");
-    QGraphicsView *v = node.nodeGraphicsObject().scene()->views().first();
+    auto views = node.nodeGraphicsObject().scene()->views();
+    if (views.isEmpty())
+      return;
+
+    QGraphicsView *v = views.first();
+    if (!v)
+      return;
+
     QPoint viewP = v->mapFromScene(pos);
     QAction *selectedAction = menu.exec( v->viewport()->mapToGlobal(viewP) );
     if(  selectedAction == embedAction  ){

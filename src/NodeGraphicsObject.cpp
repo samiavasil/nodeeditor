@@ -124,7 +124,7 @@ embedQWidget( bool embed )
                 QPoint pos = QCursor::pos();
                 _proxyWidget->deleteLater();
                 _proxyWidget = nullptr;
-                connect(this,SIGNAL(destroyed()), w, SLOT(deleteLater()));
+                connect(this, SIGNAL(destroyed()), w, SLOT(deleteLater()), Qt::UniqueConnection);
                 geom.recalculateSize();
                 update();
                 w->setWindowTitle(_node.nodeDataModel()->caption());
