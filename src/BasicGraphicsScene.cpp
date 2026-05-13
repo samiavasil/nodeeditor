@@ -124,6 +124,10 @@ BasicGraphicsScene::BasicGraphicsScene(AbstractGraphModel &graphModel, QObject *
             &BasicGraphicsScene::onNodeUpdated);
 
     connect(this, &BasicGraphicsScene::nodeClicked, this, &BasicGraphicsScene::onNodeClicked);
+    connect(this,
+            &BasicGraphicsScene::nodeContextMenu,
+            this,
+            &BasicGraphicsScene::onNodeContextMenu);
 
     connect(&_graphModel, &AbstractGraphModel::modelReset, this, &BasicGraphicsScene::onModelReset);
 
@@ -415,6 +419,39 @@ void BasicGraphicsScene::onNodeClicked(NodeId const nodeId)
         Q_EMIT modified(this);
     }
     _nodeDrag = false;
+}
+
+void BasicGraphicsScene::onNodeContextMenu(NodeId const nodeId, QPointF const pos)
+{
+    auto *node = nodeGraphicsObject(nodeId);
+    if (!node || !node->hasWidget())
+        return;
+
+    auto const sceneViews = views();
+    if (sceneViews.isEmpty())
+        return;
+
+    auto *view = sceneViews.front();
+    if (!view || !view->viewport())
+        return;
+
+    QMenu menu;
+
+    auto *embedAction = menu.addAction("Embed");
+    auto *deembedAction = menu.addAction("Deembed");
+
+    auto const embedded = node->isWidgetEmbedded();
+    embedAction->setEnabled(!embedded);
+    deembedAction->setEnabled(embedded);
+
+    QPoint const viewPos = view->mapFromScene(pos);
+    QAction *selectedAction = menu.exec(view->viewport()->mapToGlobal(viewPos));
+
+    if (selectedAction == embedAction) {
+        node->setWidgetEmbedded(true);
+    } else if (selectedAction == deembedAction) {
+        node->setWidgetEmbedded(false);
+    }
 }
 
 void BasicGraphicsScene::onModelReset()

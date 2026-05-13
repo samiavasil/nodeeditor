@@ -284,6 +284,7 @@ public Q_SLOTS:
     virtual void onNodeUpdated(NodeId const nodeId);
     virtual void onNodeClicked(NodeId const nodeId);
     virtual void onModelReset();
+    virtual void onNodeContextMenu(NodeId const nodeId, QPointF const pos);
 
     /**
      * @brief Slot called to trigger the copy command action.

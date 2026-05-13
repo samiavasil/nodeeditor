@@ -89,36 +89,88 @@ void NodeGraphicsObject::updateQWidgetEmbedPos()
     }
 }
 
-void NodeGraphicsObject::embedQWidget()
+bool NodeGraphicsObject::hasWidget() const
 {
-    AbstractNodeGeometry &geometry = nodeScene()->nodeGeometry();
-    geometry.recomputeSize(_nodeId);
+    return _graphModel.nodeData(_nodeId, NodeRole::Widget).value<QWidget *>() != nullptr;
+}
 
-    if (auto w = _graphModel.nodeData(_nodeId, NodeRole::Widget).value<QWidget *>()) {
+bool NodeGraphicsObject::isWidgetEmbedded() const
+{
+    return _proxyWidget != nullptr && _proxyWidget->widget() != nullptr;
+}
+
+void NodeGraphicsObject::setWidgetEmbedded(bool embed)
+{
+    auto *scenePtr = nodeScene();
+    if (!scenePtr)
+        return;
+
+    auto *widget = _graphModel.nodeData(_nodeId, NodeRole::Widget).value<QWidget *>();
+    if (!widget)
+        return;
+
+    AbstractNodeGeometry &geometry = scenePtr->nodeGeometry();
+
+    if (embed) {
+        if (isWidgetEmbedded())
+            return;
+
+        if (_proxyWidget) {
+            _proxyWidget->setWidget(nullptr);
+            delete _proxyWidget;
+            _proxyWidget = nullptr;
+        }
+
+        widget->hide();
+        widget->setWindowFlag(Qt::Window, false);
+
         _proxyWidget = new QGraphicsProxyWidget(this);
-
-        _proxyWidget->setWidget(w);
-
+        _proxyWidget->setWidget(widget);
         _proxyWidget->setPreferredWidth(5);
 
         geometry.recomputeSize(_nodeId);
 
-        if (w->sizePolicy().verticalPolicy() & QSizePolicy::ExpandFlag) {
+        if (widget->sizePolicy().verticalPolicy() & QSizePolicy::ExpandFlag) {
             unsigned int widgetHeight = geometry.size(_nodeId).height()
                                         - geometry.captionRect(_nodeId).height();
-
-            // If the widget wants to use as much vertical space as possible, set
-            // it to have the geom's equivalentWidgetHeight.
             _proxyWidget->setMinimumHeight(widgetHeight);
         }
 
         updateQWidgetEmbedPos();
-
-        //update();
-
         _proxyWidget->setOpacity(1.0);
         _proxyWidget->setFlag(QGraphicsItem::ItemIgnoresParentOpacity);
+    } else {
+        if (!isWidgetEmbedded())
+            return;
+
+        QWidget *detachedWidget = _proxyWidget->widget();
+        _proxyWidget->setWidget(nullptr);
+        delete _proxyWidget;
+        _proxyWidget = nullptr;
+
+        if (detachedWidget) {
+            detachedWidget->setParent(nullptr);
+            detachedWidget->setWindowFlag(Qt::Window, true);
+
+            auto const caption = _graphModel.nodeData<QString>(_nodeId, NodeRole::Caption);
+            if (!caption.isEmpty())
+                detachedWidget->setWindowTitle(caption);
+
+            detachedWidget->move(QCursor::pos());
+            detachedWidget->show();
+            detachedWidget->raise();
+            detachedWidget->activateWindow();
+        }
     }
+
+    geometry.recomputeSize(_nodeId);
+    update();
+    moveConnections();
+}
+
+void NodeGraphicsObject::embedQWidget()
+{
+    setWidgetEmbedded(true);
 }
 
 void NodeGraphicsObject::setLockedState()
@@ -443,6 +495,7 @@ void NodeGraphicsObject::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 void NodeGraphicsObject::contextMenuEvent(QGraphicsSceneContextMenuEvent *event)
 {
     Q_EMIT nodeScene()->nodeContextMenu(_nodeId, mapToScene(event->pos()));
+    event->accept();
 }
 
 void NodeGraphicsObject::lock(bool locked)

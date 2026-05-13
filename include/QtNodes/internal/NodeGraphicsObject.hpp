@@ -64,6 +64,15 @@ public:
 
     void updateQWidgetEmbedPos();
 
+    /// Toggles whether the model widget is embedded into the node body.
+    void setWidgetEmbedded(bool embed);
+
+    /// True when the node currently owns a proxy with embedded widget.
+    bool isWidgetEmbedded() const;
+
+    /// True when the delegate model provides a widget instance.
+    bool hasWidget() const;
+
     /// Saves node in a QJsonObject save file.
     QJsonObject save() const;
 
