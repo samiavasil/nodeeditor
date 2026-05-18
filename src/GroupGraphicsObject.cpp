@@ -15,6 +15,11 @@ using QtNodes::NodeConnectionInteraction;
 using QtNodes::NodeGraphicsObject;
 using QtNodes::NodeGroup;
 
+const QMarginsF GroupGraphicsObject::_margins(GroupGraphicsObject::_groupBorderX,
+                                              GroupGraphicsObject::_groupBorderY + IconGraphicsItem::iconSize(),
+                                              GroupGraphicsObject::_groupBorderX + IconGraphicsItem::iconSize(),
+                                              GroupGraphicsObject::_groupBorderY);
+
 IconGraphicsItem::IconGraphicsItem(QGraphicsItem *parent)
     : QGraphicsPixmapItem(parent)
 {}

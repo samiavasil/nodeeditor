@@ -242,10 +242,7 @@ private:
     static constexpr double _groupBorderX = 25.0;
     static constexpr double _groupBorderY = _groupBorderX * 0.8;
     static constexpr double _roundedBorderRadius = _groupBorderY;
-    static constexpr QMarginsF _margins = QMarginsF(_groupBorderX,
-                                                    _groupBorderY + IconGraphicsItem::iconSize(),
-                                                    _groupBorderX + IconGraphicsItem::iconSize(),
-                                                    _groupBorderY);
+        static const QMarginsF _margins;
 
     static constexpr double _defaultWidth = 50.0;
     static constexpr double _defaultHeight = 50.0;

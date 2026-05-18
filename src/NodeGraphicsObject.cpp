@@ -11,6 +11,10 @@
 #include "StyleCollection.hpp"
 #include "UndoCommands.hpp"
 #include <QString>
+#include <QDebug>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QWindow>
 
 #include <QtWidgets/QGraphicsEffect>
 #include <QtWidgets/QtWidgets>
@@ -18,6 +22,37 @@
 #include <cstdlib>
 
 namespace QtNodes {
+
+namespace {
+
+void bringDetachedWindowToFront(QWidget *detachedWidget)
+{
+    if (!detachedWidget || !detachedWidget->isVisible())
+        return;
+
+    QWidget *topLevel = detachedWidget->window();
+    if (!topLevel)
+        return;
+
+    if (topLevel->windowState().testFlag(Qt::WindowMinimized))
+        topLevel->showNormal();
+
+    Qt::WindowFlags const flags = topLevel->windowFlags();
+
+    topLevel->setWindowFlags(flags & ~Qt::WindowStaysOnTopHint);
+    topLevel->show();
+
+    topLevel->setWindowFlags(flags | Qt::WindowStaysOnTopHint);
+    topLevel->show();
+
+    detachedWidget->raise();
+    topLevel->raise();
+
+    if (QWindow *handle = topLevel->windowHandle())
+        handle->raise();
+}
+
+} // namespace
 
 NodeGraphicsObject::NodeGraphicsObject(BasicGraphicsScene &scene, NodeId nodeId)
     : _nodeId(nodeId)
@@ -128,6 +163,11 @@ void NodeGraphicsObject::setWidgetEmbedded(bool embed)
         _proxyWidget->setWidget(widget);
         _proxyWidget->setPreferredWidth(5);
 
+        // The widget may need to be hidden before re-embedding, but QGraphicsProxyWidget
+        // mirrors that explicit hidden state. Show it again once it is owned by the proxy.
+        _proxyWidget->show();
+        widget->show();
+
         geometry.recomputeSize(_nodeId);
 
         if (widget->sizePolicy().verticalPolicy() & QSizePolicy::ExpandFlag) {
@@ -143,23 +183,112 @@ void NodeGraphicsObject::setWidgetEmbedded(bool embed)
         if (!isWidgetEmbedded())
             return;
 
+        QSize embeddedSize;
+        if (_proxyWidget)
+            embeddedSize = _proxyWidget->size().toSize();
+
         QWidget *detachedWidget = _proxyWidget->widget();
         _proxyWidget->setWidget(nullptr);
         delete _proxyWidget;
         _proxyWidget = nullptr;
 
         if (detachedWidget) {
-            detachedWidget->setParent(nullptr);
-            detachedWidget->setWindowFlag(Qt::Window, true);
+            Qt::WindowFlags topLevelFlags = Qt::Window
+                                            | Qt::WindowTitleHint
+                                            | Qt::WindowSystemMenuHint
+                                            | Qt::WindowMinMaxButtonsHint
+                                            | Qt::WindowStaysOnTopHint
+                                            | Qt::WindowCloseButtonHint;
+            detachedWidget->setParent(nullptr, topLevelFlags);
+            detachedWidget->setWindowModality(Qt::NonModal);
+            detachedWidget->setAttribute(Qt::WA_DeleteOnClose, false);
+            detachedWidget->setAttribute(Qt::WA_DontShowOnScreen, false);
+            detachedWidget->setWindowState(Qt::WindowNoState);
 
             auto const caption = _graphModel.nodeData<QString>(_nodeId, NodeRole::Caption);
             if (!caption.isEmpty())
                 detachedWidget->setWindowTitle(caption);
 
-            detachedWidget->move(QCursor::pos());
-            detachedWidget->show();
+            QSize targetSize = embeddedSize.isValid() ? embeddedSize : detachedWidget->size();
+            if (!targetSize.isValid() || targetSize.width() <= 0 || targetSize.height() <= 0) {
+                targetSize = detachedWidget->sizeHint().expandedTo(detachedWidget->minimumSizeHint());
+            }
+            if (!targetSize.isValid() || targetSize.width() <= 0 || targetSize.height() <= 0)
+                targetSize = QSize(420, 260);
+
+            QScreen *screen = nullptr;
+            auto const sceneViews = scenePtr->views();
+            QGraphicsView *hostView = nullptr;
+            if (!sceneViews.isEmpty() && sceneViews.front()) {
+                hostView = sceneViews.front();
+                QWidget *hostWindow = hostView->window();
+                if (hostWindow && hostWindow->windowHandle())
+                    screen = hostWindow->windowHandle()->screen();
+            }
+            if (!screen)
+                screen = QGuiApplication::screenAt(QCursor::pos());
+            if (!screen)
+                screen = QGuiApplication::primaryScreen();
+            QRect const available = screen ? screen->availableGeometry() : QRect(0, 0, 1920, 1080);
+
+            if (targetSize.width() > available.width() || targetSize.height() > available.height()) {
+                int fitW = available.width() - 32;
+                int fitH = available.height() - 32;
+                if (fitW < 120)
+                    fitW = available.width();
+                if (fitH < 90)
+                    fitH = available.height();
+                targetSize = QSize(fitW, fitH);
+            }
+
+            detachedWidget->resize(targetSize);
+
+            // Prefer placing detached windows near the node location in the active view.
+            QPoint targetPos;
+            bool hasNodeAnchor = false;
+            if (hostView && hostView->viewport()) {
+                QPoint const nodeInView = hostView->mapFromScene(mapToScene(boundingRect().topLeft()));
+                if (hostView->viewport()->rect().contains(nodeInView)) {
+                    targetPos = hostView->viewport()->mapToGlobal(nodeInView + QPoint(24, 24));
+                    hasNodeAnchor = true;
+                }
+            }
+
+            if (!hasNodeAnchor) {
+                targetPos = available.center() - QPoint(targetSize.width() / 2, targetSize.height() / 2);
+            }
+
+            // Small cascade offset avoids exact overlap when de-embedding several nodes in a row.
+            static int detachCascadeIndex = 0;
+            int const cascadeStep = 22;
+            int const cascadeSlots = 6;
+            int const cascadeOffset = (detachCascadeIndex % cascadeSlots) * cascadeStep;
+            targetPos += QPoint(cascadeOffset, cascadeOffset);
+            detachCascadeIndex = (detachCascadeIndex + 1) % cascadeSlots;
+
+            int maxX = available.right() - targetSize.width() + 1;
+            int maxY = available.bottom() - targetSize.height() + 1;
+            if (targetPos.x() > maxX)
+                targetPos.setX(maxX);
+            if (targetPos.y() > maxY)
+                targetPos.setY(maxY);
+            if (targetPos.x() < available.left())
+                targetPos.setX(available.left());
+            if (targetPos.y() < available.top())
+                targetPos.setY(available.top());
+
+            detachedWidget->move(targetPos);
+            detachedWidget->showNormal();
             detachedWidget->raise();
             detachedWidget->activateWindow();
+
+            qDebug() << "DEEMBED widget:" << detachedWidget->metaObject()->className()
+                     << "visible=" << detachedWidget->isVisible()
+                     << "hidden=" << detachedWidget->isHidden()
+                     << "geom=" << detachedWidget->geometry()
+                     << "sizeHint=" << detachedWidget->sizeHint()
+                     << "flags=" << detachedWidget->windowFlags()
+                     << "state=" << detachedWidget->windowState();
         }
     }
 
@@ -334,7 +463,6 @@ void NodeGraphicsObject::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 
         if (auto w = _graphModel.nodeData<QWidget *>(_nodeId, NodeRole::Widget)) {
             prepareGeometryChange();
-
             auto oldSize = w->size();
 
             oldSize += QSize(diff.x(), diff.y());
@@ -445,6 +573,12 @@ void NodeGraphicsObject::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 
     // bring this node forward
     setZValue(1.0);
+
+    if (!isWidgetEmbedded()) {
+        auto *detachedWidget = _graphModel.nodeData(_nodeId, NodeRole::Widget).value<QWidget *>();
+        bringDetachedWindowToFront(detachedWidget);
+
+    }
 
     _nodeState.setHovered(true);
 

@@ -32,6 +32,7 @@
 #include <QtCore/QJsonValue>
 #include <QtCore/QString>
 #include <QtCore/QtGlobal>
+#include <QTimer>
 
 #include <iostream>
 #include <stdexcept>
@@ -448,9 +449,15 @@ void BasicGraphicsScene::onNodeContextMenu(NodeId const nodeId, QPointF const po
     QAction *selectedAction = menu.exec(view->viewport()->mapToGlobal(viewPos));
 
     if (selectedAction == embedAction) {
-        node->setWidgetEmbedded(true);
+        QTimer::singleShot(0, this, [node]() {
+            if (node)
+                node->setWidgetEmbedded(true);
+        });
     } else if (selectedAction == deembedAction) {
-        node->setWidgetEmbedded(false);
+        QTimer::singleShot(0, this, [node]() {
+            if (node)
+                node->setWidgetEmbedded(false);
+        });
     }
 }
 
