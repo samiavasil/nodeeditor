@@ -15,6 +15,7 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QWindow>
+#include <QtWidgets/QApplication>
 
 #include <QtWidgets/QGraphicsEffect>
 #include <QtWidgets/QtWidgets>
@@ -25,6 +26,31 @@ namespace QtNodes {
 
 namespace {
 
+bool isTopLevelWidgetAlreadyInFront(QWidget *topLevel)
+{
+    if (!topLevel || !topLevel->isVisible())
+        return false;
+
+    if (topLevel->windowState().testFlag(Qt::WindowMinimized))
+        return false;
+
+    if (topLevel->isActiveWindow())
+        return true;
+
+    QRect probeRect = topLevel->frameGeometry();
+    if (!probeRect.isValid() || probeRect.isEmpty())
+        probeRect = topLevel->geometry();
+
+    if (!probeRect.isValid() || probeRect.isEmpty())
+        return false;
+
+    QWidget *frontWidget = QApplication::topLevelAt(probeRect.center());
+    if (!frontWidget)
+        return false;
+
+    return frontWidget == topLevel || frontWidget->window() == topLevel;
+}
+
 void bringDetachedWindowToFront(QWidget *detachedWidget)
 {
     if (!detachedWidget || !detachedWidget->isVisible())
@@ -33,6 +59,18 @@ void bringDetachedWindowToFront(QWidget *detachedWidget)
     QWidget *topLevel = detachedWidget->window();
     if (!topLevel)
         return;
+
+    // Avoid expensive flag toggling when already front-most, but still issue a lightweight
+    // raise so stale stacking state cannot lock us out after the first hover.
+    if (isTopLevelWidgetAlreadyInFront(topLevel)) {
+        detachedWidget->raise();
+        topLevel->raise();
+
+        if (QWindow *handle = topLevel->windowHandle())
+            handle->raise();
+
+        return;
+    }
 
     if (topLevel->windowState().testFlag(Qt::WindowMinimized))
         topLevel->showNormal();
