@@ -45,7 +45,7 @@ GraphicsView::GraphicsView(QWidget *parent)
     , _pasteAction(Q_NULLPTR)
 {
     setDragMode(QGraphicsView::ScrollHandDrag);
-    setRenderHint(QPainter::Antialiasing);
+    setRenderHint(QPainter::Antialiasing, false);
 
     auto const &flowViewStyle = StyleCollection::flowViewStyle();
 
