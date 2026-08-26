@@ -143,6 +143,21 @@ public:
 
     virtual bool resizable() const { return false; }
 
+    /**
+     * Whether the node's geometry (size / embedded widget position / port
+     * positions) can change when data arrives on an input port.
+     *
+     * Defaults to true, which keeps the historical behavior: the scene runs
+     * the full onNodeUpdated() path (recomputeSize + updateQWidgetEmbedPos +
+     * moveConnections) on every setInData().
+     *
+     * Models whose size is fixed regardless of incoming data (e.g. video
+     * pipeline nodes that repaint their display in setInData()) should return
+     * false. The scene then uses a repaint-only fast path on data arrival,
+     * avoiding the expensive geometry recompute + connection move cascade.
+     */
+    virtual bool dataArrivalChangesGeometry() const { return true; }
+
     bool frozen() const { return _frozen; }
 
     void setFrozenState(bool state) { _frozen = state; }

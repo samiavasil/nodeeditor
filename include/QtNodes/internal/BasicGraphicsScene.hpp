@@ -282,6 +282,13 @@ public Q_SLOTS:
     virtual void onNodeCreated(NodeId const nodeId);
     virtual void onNodePositionUpdated(NodeId const nodeId);
     virtual void onNodeUpdated(NodeId const nodeId);
+    /// Slot called when data arrives on an input port of `nodeId`.
+    ///
+    /// Default implementation is identical to onNodeUpdated() (full geometry
+    /// recompute + connection move). Models that do not change their geometry
+    /// on data arrival can opt out via NodeDelegateModel::dataArrivalChangesGeometry()
+    /// so the scene only repaints the node (fast path).
+    virtual void onNodeDataArrived(NodeId const nodeId);
     virtual void onNodeClicked(NodeId const nodeId);
     virtual void onModelReset();
     virtual void onNodeContextMenu(NodeId const nodeId, QPointF const pos);

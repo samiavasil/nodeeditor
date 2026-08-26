@@ -75,7 +75,7 @@ DataFlowGraphicsScene::DataFlowGraphicsScene(DataFlowGraphModel &graphModel, QOb
 {
     connect(&_graphModel,
             &DataFlowGraphModel::inPortDataWasSet,
-            [this](NodeId const nodeId, PortType const, PortIndex const) { onNodeUpdated(nodeId); });
+            [this](NodeId const nodeId, PortType const, PortIndex const) { onNodeDataArrived(nodeId); });
 }
 
 // TODO constructor for an empyt scene?

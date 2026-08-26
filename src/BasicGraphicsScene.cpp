@@ -413,6 +413,14 @@ void BasicGraphicsScene::onNodeUpdated(NodeId const nodeId)
     }
 }
 
+void BasicGraphicsScene::onNodeDataArrived(NodeId const nodeId)
+{
+    // Default: identical to onNodeUpdated() (full geometry recompute path).
+    // Subclasses may override to use a repaint-only fast path when the model
+    // reports dataArrivalChangesGeometry() == false.
+    onNodeUpdated(nodeId);
+}
+
 void BasicGraphicsScene::onNodeClicked(NodeId const nodeId)
 {
     if (_nodeDrag) {
