@@ -158,6 +158,18 @@ public:
      */
     virtual bool dataArrivalChangesGeometry() const { return true; }
 
+    /**
+     * Whether the node's BODY (boundary, caption, ports, validation state)
+     * needs repainting when new data arrives on an existing connection.
+     *
+     * Widget content changes self-repaint via Qt — return false for nodes
+     * whose body appearance does not depend on data.
+     *
+     * Defaults to true, which keeps the historical behavior: the scene calls
+     * node->update() on every setInData() to repaint the node body.
+     */
+    virtual bool dataArrivalChangesWidget() const { return true; }
+
     bool frozen() const { return _frozen; }
 
     void setFrozenState(bool state) { _frozen = state; }

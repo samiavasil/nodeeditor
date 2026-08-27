@@ -418,7 +418,25 @@ void BasicGraphicsScene::onNodeDataArrived(NodeId const nodeId)
     // Default: identical to onNodeUpdated() (full geometry recompute path).
     // Subclasses may override to use a repaint-only fast path when the model
     // reports dataArrivalChangesGeometry() == false.
-    onNodeUpdated(nodeId);
+    auto node = nodeGraphicsObject(nodeId);
+    if (!node)
+        return;
+
+    // Models whose BODY appearance does not depend on data (video/LLM/console
+    // nodes) opt out of the body repaint via dataArrivalChangesWidget().
+    bool bodyRepaint = true;
+    if (auto *dfModel = dynamic_cast<DataFlowGraphModel *>(&graphModel())) {
+        if (auto *delegate = dfModel->delegateModel<NodeDelegateModel>(nodeId)) {
+            bodyRepaint = delegate->dataArrivalChangesWidget();
+        }
+    }
+
+    node->setGeometryChanged();
+    _nodeGeometry->recomputeSize(nodeId);
+    node->updateQWidgetEmbedPos();
+    if (bodyRepaint)
+        node->update();
+    node->moveConnections();
 }
 
 void BasicGraphicsScene::onNodeClicked(NodeId const nodeId)
