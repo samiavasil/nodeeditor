@@ -27,6 +27,12 @@ void NodeDelegateModel::load(QJsonObject const &)
 void NodeDelegateModel::setValidationState(const NodeValidationState &validationState)
 {
     _nodeValidationState = validationState;
+
+    // A validation-state change alters the node BODY (validation border).
+    // Models that opt out of the per-frame body repaint via
+    // dataArrivalChangesWidget() still need a repaint here — rare, only on
+    // an actual state change.
+    Q_EMIT requestNodeUpdate();
 }
 
 ConnectionPolicy NodeDelegateModel::portConnectionPolicy(PortType portType, PortIndex) const
