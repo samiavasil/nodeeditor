@@ -26,6 +26,14 @@ void NodeDelegateModel::load(QJsonObject const &)
 
 void NodeDelegateModel::setValidationState(const NodeValidationState &validationState)
 {
+    // Fast path: NumberDisplay-class nodes call setValidationState every frame
+    // with the same state — skip the requestNodeUpdate emission (and the
+    // resulting nodeUpdated cascade) when nothing changed. NodeValidationState
+    // has no operator==, so compare the state enum + message explicitly.
+    if (_nodeValidationState._state == validationState._state
+        && _nodeValidationState._stateMessage == validationState._stateMessage)
+        return;
+
     _nodeValidationState = validationState;
 
     // A validation-state change alters the node BODY (validation border).
