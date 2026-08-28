@@ -386,13 +386,15 @@ bool DataFlowGraphModel::setNodeData(NodeId nodeId, NodeRole role, QVariant valu
         break;
 
     case NodeRole::ValidationState: {
+        // setValidationState() emits requestNodeUpdate (→ nodeUpdated via the
+        // per-model connection), so no direct nodeUpdated emission here — the
+        // old direct emission caused a double nodeUpdated per state set.
         if (value.canConvert<NodeValidationState>()) {
             auto state = value.value<NodeValidationState>();
             if (auto node = delegateModel<NodeDelegateModel>(nodeId); node != nullptr) {
                 node->setValidationState(state);
             }
         }
-        Q_EMIT nodeUpdated(nodeId);
     } break;
 
     case NodeRole::ProcessingStatus: {
