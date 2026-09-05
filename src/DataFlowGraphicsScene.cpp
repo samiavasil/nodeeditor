@@ -140,7 +140,8 @@ QMenu *DataFlowGraphicsScene::createSceneMenu(QPointF const scenePos)
             path += seg;
             QTreeWidgetItem *item = pathToItem.value(path, nullptr);
             if (!item) {
-                item = new QTreeWidgetItem(parentItem ? parentItem : treeView);
+                item = parentItem ? new QTreeWidgetItem(parentItem)
+                                  : new QTreeWidgetItem(treeView);
                 item->setText(0, seg);
                 item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
                 pathToItem.insert(path, item);
