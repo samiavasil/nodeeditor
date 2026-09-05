@@ -125,19 +125,36 @@ QMenu *DataFlowGraphicsScene::createSceneMenu(QPointF const scenePos)
 
     auto registry = _graphModel.dataModelRegistry();
 
+    // Build nested category tree: split category strings on '/' into a
+    // multi-level QTreeWidgetItem hierarchy (e.g. "AI/LLM" -> AI -> LLM).
+    QMap<QString, QTreeWidgetItem *> pathToItem;
+
+    // Pass 1: create category path items in sorted order (deterministic).
     for (auto const &cat : registry->categories()) {
-        auto item = new QTreeWidgetItem(treeView);
-        item->setText(0, cat);
-        item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+        QStringList segments = cat.split('/');
+        QString path;
+        QTreeWidgetItem *parentItem = nullptr;
+        for (auto const &seg : segments) {
+            if (!path.isEmpty())
+                path += '/';
+            path += seg;
+            QTreeWidgetItem *item = pathToItem.value(path, nullptr);
+            if (!item) {
+                item = new QTreeWidgetItem(parentItem ? parentItem : treeView);
+                item->setText(0, seg);
+                item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+                pathToItem.insert(path, item);
+            }
+            parentItem = item;
+        }
     }
 
+    // Pass 2: add model leaves under their category path.
     for (auto const &assoc : registry->registeredModelsCategoryAssociation()) {
-        QList<QTreeWidgetItem *> parent = treeView->findItems(assoc.second, Qt::MatchExactly);
-
-        if (parent.count() <= 0)
+        QTreeWidgetItem *parentItem = pathToItem.value(assoc.second, nullptr);
+        if (!parentItem)
             continue;
-
-        auto item = new QTreeWidgetItem(parent.first());
+        auto item = new QTreeWidgetItem(parentItem);
         item->setText(0, assoc.first);
     }
 
