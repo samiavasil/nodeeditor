@@ -422,20 +422,10 @@ void BasicGraphicsScene::onNodeDataArrived(NodeId const nodeId)
     if (!node)
         return;
 
-    // Models whose BODY appearance does not depend on data (video/LLM/console
-    // nodes) opt out of the body repaint via dataArrivalChangesWidget().
-    bool bodyRepaint = true;
-    if (auto *dfModel = dynamic_cast<DataFlowGraphModel *>(&graphModel())) {
-        if (auto *delegate = dfModel->delegateModel<NodeDelegateModel>(nodeId)) {
-            bodyRepaint = delegate->dataArrivalChangesWidget();
-        }
-    }
-
     node->setGeometryChanged();
     _nodeGeometry->recomputeSize(nodeId);
     node->updateQWidgetEmbedPos();
-    if (bodyRepaint)
-        node->update();
+    node->update();          // always repaint body on data arrival
     node->moveConnections();
 }
 
