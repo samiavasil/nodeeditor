@@ -415,18 +415,31 @@ void BasicGraphicsScene::onNodeUpdated(NodeId const nodeId)
 
 void BasicGraphicsScene::onNodeDataArrived(NodeId const nodeId)
 {
-    // Default: identical to onNodeUpdated() (full geometry recompute path).
-    // Subclasses may override to use a repaint-only fast path when the model
-    // reports dataArrivalChangesGeometry() == false.
+    // Fast path: if the model reports that data arrival does NOT change
+    // geometry, skip the expensive recomputeSize + moveConnections cascade.
+    // Only repaint the node body if the model says its appearance depends on
+    // data (dataArrivalChangesWidget == true). Video nodes return false for
+    // both — their display widget self-repaints via Qt.
     auto node = nodeGraphicsObject(nodeId);
     if (!node)
         return;
 
-    node->setGeometryChanged();
-    _nodeGeometry->recomputeSize(nodeId);
-    node->updateQWidgetEmbedPos();
-    node->update();          // always repaint body on data arrival
-    node->moveConnections();
+    auto *dfModel = dynamic_cast<DataFlowGraphModel *>(&graphModel());
+    if (!dfModel) {
+        // Fallback: no delegate model available, use full path
+        onNodeUpdated(nodeId);
+        return;
+    }
+
+    auto *delegate = dfModel->delegateModel<NodeDelegateModel>(nodeId);
+    if (delegate && !delegate->dataArrivalChangesGeometry()) {
+        // Repaint-only fast path
+        if (delegate->dataArrivalChangesWidget())
+            node->update();
+    } else {
+        // Full path: geometry may change on data arrival
+        onNodeUpdated(nodeId);
+    }
 }
 
 void BasicGraphicsScene::onNodeClicked(NodeId const nodeId)
